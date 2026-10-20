@@ -2545,9 +2545,11 @@ export default function ChatView(props: ChatViewProps) {
   });
   // A send awaits uploads before it declines, so it reads the approvals pending by then.
   const pendingApprovalsRef = useRef(pendingApprovals);
+  const respondingRequestIdsRef = useRef(respondingRequestIds);
   useLayoutEffect(() => {
     pendingApprovalsRef.current = pendingApprovals;
-  }, [pendingApprovals]);
+    respondingRequestIdsRef.current = respondingRequestIds;
+  }, [pendingApprovals, respondingRequestIds]);
   const activeProposedPlan = (() => {
     if (!latestRunSettled) {
       return null;
@@ -6832,9 +6834,12 @@ export default function ChatView(props: ChatViewProps) {
         .getState()
         .getComposerDraft(composerDraftTarget);
       const changedBeforeDecline = draftChangedSinceSend();
+      const approvalResponding = approvalsToDecline.some((approval) =>
+        respondingRequestIdsRef.current.includes(approval.requestId),
+      );
       const declined =
         !changedBeforeDecline &&
-        !approvalsToDecline.some((approval) => respondingRequestIds.includes(approval.requestId)) &&
+        !approvalResponding &&
         (await declinePendingApprovals(approvalsToDecline, onRespondToApprovalStable).catch(
           () => false,
         ));
@@ -6859,14 +6864,16 @@ export default function ChatView(props: ChatViewProps) {
         setDockedDraftHeroThreadKey((currentThreadKey) =>
           currentThreadKey === activeThreadKey ? null : currentThreadKey,
         );
-        if (draftChanged || (declined && approvalArrived)) {
+        if (draftChanged || approvalResponding || (declined && approvalArrived)) {
           toastManager.add({
             type: "info",
             title: draftChanged
               ? declined
                 ? "Approval declined. Your message changed, so it wasn't sent."
                 : "Your message changed, so it wasn't sent."
-              : "Another approval arrived, so your message wasn't sent.",
+              : approvalResponding
+                ? "An approval is already being answered, so your message wasn't sent."
+                : "Another approval arrived, so your message wasn't sent.",
             description: "Send again when it's ready.",
           });
         }
