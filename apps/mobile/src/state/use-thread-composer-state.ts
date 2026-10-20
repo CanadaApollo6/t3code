@@ -642,13 +642,16 @@ export function useThreadComposerState() {
 
     if (beforeDispatch !== undefined) {
       if (!(await beforeDispatch())) return null;
-      // A context paste still landing, or any draft change while approvals were declined,
-      // means this snapshot is no longer what the user sent.
+      // A context paste still landing, or any draft or settings change while approvals were
+      // declined, means this snapshot is no longer what the user sent.
       if (appAtomRegistry.get(composerContextImportsAtom)[threadKey]) return null;
       const current = getComposerDraftSnapshot(threadKey);
       if (
         current.text !== draft.text ||
         JSON.stringify(current.context) !== JSON.stringify(draft.context) ||
+        JSON.stringify(current.modelSelection) !== JSON.stringify(draft.modelSelection) ||
+        current.runtimeMode !== draft.runtimeMode ||
+        current.interactionMode !== draft.interactionMode ||
         current.attachments.length !== attachments.length ||
         current.attachments.some((attachment, index) => attachment.id !== attachments[index]?.id)
       )
