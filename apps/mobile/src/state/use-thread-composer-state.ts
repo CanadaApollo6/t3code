@@ -663,10 +663,12 @@ export function useThreadComposerState() {
     // Steering travels as "auto" so a turn that ends in the meantime degrades
     // to a queued run on the server instead of failing the delivery and
     // bouncing the message back into the draft.
+    // A redirect declined approvals to steer the waiting turn, not to queue behind it.
+    const activeTurnDefault = beforeDispatch !== undefined ? "steer" : followUpBehavior;
     const followUpAction = resolveComposerDispatchMode({
       running: activeThreadBusy && canSteerActiveTurn,
-      alternateModifier: followUpOverride !== undefined && followUpOverride !== followUpBehavior,
-      activeTurnDefault: followUpBehavior,
+      alternateModifier: followUpOverride !== undefined && followUpOverride !== activeTurnDefault,
+      activeTurnDefault,
     });
     const setupRunning = [selectedThreadActivityRun?.status, selectedThreadRuntime?.status].some(
       (status) => status === "preparing" || status === "starting",

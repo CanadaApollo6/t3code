@@ -2828,6 +2828,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const nonPersistedComposerImageIdSet = new Set(nonPersistedComposerImageIds);
 
   const isComposerApprovalState = activePendingApproval !== null;
+  // A send during an approval declines it to redirect the agent, so it steers the waiting
+  // turn instead of queueing behind it.
+  const followUpBehavior = isComposerApprovalState ? "steer" : settings.followUpBehavior;
   const composerSuggestionsVisible = composerMenuOpen;
   const composerSuggestionListVisible = composerSuggestionsVisible && composerMenuItems.length > 0;
   const activePendingUserInput = pendingUserInputs[0] ?? null;
@@ -4057,7 +4060,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
             resolveComposerDispatchMode({
               running: phase === "running",
               alternateModifier: false,
-              activeTurnDefault: settings.followUpBehavior,
+              activeTurnDefault: followUpBehavior,
               canSteer: !isCompacting,
             }),
           submissionIntent,
@@ -4080,7 +4083,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       resolveComposerDispatchMode({
         running: phase === "running",
         alternateModifier: event.metaKey || event.ctrlKey,
-        activeTurnDefault: settings.followUpBehavior,
+        activeTurnDefault: followUpBehavior,
         canSteer: !isCompacting,
       }),
     );
@@ -4092,7 +4095,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       resolveComposerDispatchMode({
         running: phase === "running",
         alternateModifier: false,
-        activeTurnDefault: settings.followUpBehavior,
+        activeTurnDefault: followUpBehavior,
         canSteer: !isCompacting,
       }),
     );
@@ -4256,7 +4259,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         resolveComposerDispatchMode({
           running: phase === "running",
           alternateModifier: submissionIntent === "alternate",
-          activeTurnDefault: settings.followUpBehavior,
+          activeTurnDefault: followUpBehavior,
           canSteer: !isCompacting,
         }),
         submissionIntent,
@@ -7308,7 +7311,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                     pendingAction={pendingPrimaryAction}
                     isRunning={phase === "running"}
                     canInterrupt={canInterrupt}
-                    followUpBehavior={settings.followUpBehavior}
+                    followUpBehavior={followUpBehavior}
                     canSteer={!isCompacting}
                     alternateShortcutLabel={shortcutLabelForCommand(
                       keybindings,

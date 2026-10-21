@@ -1459,7 +1459,12 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
                             : null
                         }
                         draftKey={props.composerDraftKey ?? undefined}
-                        followUpBehavior={props.followUpBehavior}
+                        followUpBehavior={
+                          props.activePendingApprovals.length > 0 &&
+                          props.activePendingUserInput === null
+                            ? "steer"
+                            : props.followUpBehavior
+                        }
                         canSteerActiveTurn={props.canSteerActiveTurn}
                         hidden={composerSlotHidden}
                         queuedEdit={
