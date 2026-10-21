@@ -40,6 +40,8 @@ import { useAtomValue } from "@effect/atom-react";
 import { environmentThreadDetails } from "../../state/threads";
 import { resolveUserMessagePresentation } from "@t3tools/client-runtime/user-message";
 import { Link } from "@tanstack/react-router";
+import { useEnvironmentQuery } from "../../state/query";
+import { serverEnvironment } from "../../state/server";
 import { canForkProjectedAssistantItem } from "@t3tools/client-runtime/state/thread-workflows";
 import { notificationChildThreadId } from "@t3tools/client-runtime/state/thread-execution";
 import { replaceComposerContextReferences } from "@t3tools/shared/composerContextReferences";
@@ -150,6 +152,7 @@ import {
   Code2Icon,
   XIcon,
   ZapIcon,
+  CalendarClockIcon,
   RotateCcwIcon,
 } from "lucide-react";
 import { ChevronDown, ChevronRight, Link as LinkIconNode } from "lucide";
@@ -2155,8 +2158,72 @@ function UserMessageRow({ row }: { row: Extract<TimelineRow, { kind: "message" }
       environmentId={ctx.activeThreadEnvironmentId}
       onOpenThread={(threadId) => ctx.onOpenThread(ThreadId.make(threadId))}
     />
+  ) : resolveUserMessagePresentation(row.message).attribution === "automation" ? (
+    <AutomationMessageRow row={row} />
   ) : (
     <UserTimelineRow row={row} />
+  );
+}
+
+/** Automation prompts are long, repeated runbooks; a work-log row keeps them out of the way. */
+function AutomationMessageRow({ row }: { row: Extract<TimelineRow, { kind: "message" }> }) {
+  const ctx = use(TimelineRowCtx);
+  const [expanded, setExpanded] = useState(false);
+  const revealRef = findRevealRef(() => setExpanded(true));
+  const { text, scheduledTaskId } = resolveUserMessagePresentation(row.message);
+  const tasksQuery = useEnvironmentQuery(
+    scheduledTaskId
+      ? serverEnvironment.scheduledTasksLive({
+          environmentId: ctx.activeThreadEnvironmentId,
+          input: {},
+        })
+      : null,
+  );
+  const taskTitle = tasksQuery.data?.tasks.find((task) => task.id === scheduledTaskId)?.title;
+  const summary = taskTitle ?? text.trim().split(/\r?\n/, 1)[0] ?? "";
+
+  return (
+    <WorkLogBlock>
+      <div ref={revealRef} data-user-message-attribution="automation">
+        <WorkLogButton
+          aria-expanded={expanded}
+          data-scroll-anchor-ignore
+          onClick={() => setExpanded((value) => !value)}
+          icon={<CalendarClockIcon className="size-4 shrink-0 stroke-2 text-icon-muted" />}
+          label={
+            <span className="flex min-w-0 gap-1.5">
+              <span className="shrink-0">Automation</span>
+              <span className="min-w-0 truncate text-foreground">{summary}</span>
+            </span>
+          }
+          trailing={
+            <TimelineRowTimestamp
+              createdAt={row.message.createdAt}
+              timestampFormat={ctx.timestampFormat}
+            />
+          }
+        />
+        {expanded ? (
+          <WorkLogDetails>
+            <div data-thread-find-text="true">
+              <UserMessageBody text={text} skills={ctx.skills} markdownCwd={ctx.markdownCwd} />
+            </div>
+            <div className="flex items-center gap-2">
+              {scheduledTaskId ? (
+                <Link
+                  to="/settings/scheduled-tasks"
+                  search={{ environmentId: ctx.activeThreadEnvironmentId, taskId: scheduledTaskId }}
+                  className="rounded-sm text-xs text-muted-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                >
+                  Open automation
+                </Link>
+              ) : null}
+              <MessageCopyButton text={text} variant="ghost" />
+            </div>
+          </WorkLogDetails>
+        ) : null}
+      </div>
+    </WorkLogBlock>
   );
 }
 
@@ -2292,27 +2359,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
 
   return (
     <div className="group flex flex-col items-end gap-1">
-      {userMessage.attribution === "automation" ? (
-        <p
-          className="me-1 text-2xs text-muted-foreground/70"
-          data-user-message-attribution="automation"
-        >
-          {userMessage.scheduledTaskId ? (
-            <Link
-              to="/settings/scheduled-tasks"
-              search={{
-                environmentId: ctx.activeThreadEnvironmentId,
-                taskId: userMessage.scheduledTaskId,
-              }}
-              className="rounded-sm hover:text-muted-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-            >
-              Sent by automation
-            </Link>
-          ) : (
-            "Sent by automation"
-          )}
-        </p>
-      ) : userMessage.attribution === "t3code" ? (
+      {userMessage.attribution === "t3code" ? (
         <p
           className="me-1 text-2xs text-muted-foreground/70"
           data-user-message-attribution="t3code"
