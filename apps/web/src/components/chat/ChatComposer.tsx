@@ -2829,8 +2829,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
 
   const isComposerApprovalState = activePendingApproval !== null;
   // A send during an approval declines it to redirect the agent, so it steers the waiting
-  // turn instead of queueing behind it.
-  const followUpBehavior = isComposerApprovalState ? "steer" : settings.followUpBehavior;
+  // turn instead of queueing behind it. Approvals the typing guard holds are declined too.
+  const followUpBehavior = pendingApprovals.length > 0 ? "steer" : settings.followUpBehavior;
   const composerSuggestionsVisible = composerMenuOpen;
   const composerSuggestionListVisible = composerSuggestionsVisible && composerMenuItems.length > 0;
   const activePendingUserInput = pendingUserInputs[0] ?? null;
