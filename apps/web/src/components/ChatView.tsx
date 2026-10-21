@@ -6803,7 +6803,11 @@ export default function ChatView(props: ChatViewProps) {
     // drafts leave them alone. After navigating away during an upload, the shown approvals
     // are another thread's, so this send leaves them alone too.
     const approvalsToDecline =
-      currentRouteThreadKeyRef.current === routeThreadKey ? pendingApprovalsRef.current : [];
+      currentRouteThreadKeyRef.current === routeThreadKey
+        ? pendingApprovalsRef.current.filter((approval) =>
+            sendCtx?.shownPendingApprovalIds.includes(approval.requestId),
+          )
+        : [];
     if (approvalsToDecline.length > 0) {
       // A draft edited since send, or a paste still landing in it, is no longer the message
       // the user sent.
