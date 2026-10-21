@@ -2,6 +2,7 @@ import { useAtomValue } from "@effect/atom-react";
 import * as Schema from "effect/Schema";
 import {
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
   type CSSProperties,
@@ -205,6 +206,19 @@ function SidebarControl() {
   );
 }
 
+function routePanelsOpen(routeThreadRef: ReturnType<typeof useThreadRouteRef>) {
+  if (!routeThreadRef) return { terminalOpen: false, previewOpen: false };
+  return {
+    terminalOpen: selectThreadTerminalUiState(
+      useTerminalUiStateStore.getState().terminalUiStateByThreadKey,
+      routeThreadRef,
+    ).terminalOpen,
+    previewOpen:
+      selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, routeThreadRef) ===
+      "preview",
+  };
+}
+
 function NavigationHistoryShortcuts() {
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const routeThreadRef = useThreadRouteRef();
@@ -221,17 +235,8 @@ function NavigationHistoryShortcuts() {
       const command = resolveShortcutCommand(event, keybindings, {
         context: {
           terminalFocus: isTerminalFocused(),
-          terminalOpen: routeThreadRef
-            ? selectThreadTerminalUiState(
-                useTerminalUiStateStore.getState().terminalUiStateByThreadKey,
-                routeThreadRef,
-              ).terminalOpen
-            : false,
           previewFocus: isPreviewFocused(),
-          previewOpen: routeThreadRef
-            ? selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, routeThreadRef) ===
-              "preview"
-            : false,
+          ...routePanelsOpen(routeThreadRef),
           editableFocus: isEditableFocused(event.target),
           modelPickerOpen: isModelPickerOpen(),
         },
@@ -258,27 +263,30 @@ const MODIFIER_KEYS = new Set(["Alt", "Control", "Meta", "Shift"]);
 // so mod+z reaches it before the composer's own undo handler consumes the key.
 function ThreadUndoShortcut() {
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
+  const routeThreadRef = useThreadRouteRef();
   // A collapsed sidebar hides the notice, so text fields keep their own undo.
   const noticeVisible = useSidebarVisibility();
+  // Outlives the effect: undoing an archive navigates, which re-runs it mid-hold.
+  const heldUndoKey = useRef<string | null>(null);
 
   useEffect(() => {
-    let heldUndoKey: string | null = null;
     const onKeyDown = (event: KeyboardEvent) => {
       // A held key undoes once. Cancel its repeats so they cannot fall through
       // to the editor's own undo, even after the last notice is gone.
       if (event.repeat) {
-        if (event.code === heldUndoKey) {
+        if (event.code === heldUndoKey.current) {
           event.preventDefault();
           event.stopPropagation();
         }
         return;
       }
       // A modifier tapped mid-hold leaves the held key repeating.
-      if (!MODIFIER_KEYS.has(event.key)) heldUndoKey = null;
+      if (!MODIFIER_KEYS.has(event.key)) heldUndoKey.current = null;
       const command = resolveShortcutCommand(event, keybindings, {
         context: {
           terminalFocus: isTerminalFocused(),
           previewFocus: isPreviewFocused(),
+          ...routePanelsOpen(routeThreadRef),
           editableFocus:
             isEditableFocused(event.target) && !(noticeVisible && threadUndoClaimsShortcut()),
           modelPickerOpen: isModelPickerOpen(),
@@ -290,7 +298,7 @@ function ThreadUndoShortcut() {
       }
       if (isCommandPaletteOpen() || isModelPickerOpen()) return;
       if (undoLatestThreadAction()) {
-        heldUndoKey = event.code;
+        heldUndoKey.current = event.code;
         event.preventDefault();
         event.stopPropagation();
       }
@@ -304,7 +312,7 @@ function ThreadUndoShortcut() {
       window.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("input", onInput, true);
     };
-  }, [keybindings, noticeVisible]);
+  }, [keybindings, noticeVisible, routeThreadRef]);
 
   return null;
 }
