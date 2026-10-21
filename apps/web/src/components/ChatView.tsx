@@ -6838,6 +6838,9 @@ export default function ChatView(props: ChatViewProps) {
         .getState()
         .getComposerDraft(composerDraftTarget);
       const changedBeforeDecline = draftChangedSinceSend();
+      const pendingIdsBeforeDecline = pendingApprovalsRef.current.map(
+        (approval) => approval.requestId,
+      );
       const approvalResponding = approvalsToDecline.some((approval) =>
         respondingRequestIdsRef.current.includes(approval.requestId),
       );
@@ -6855,8 +6858,7 @@ export default function ChatView(props: ChatViewProps) {
       // An approval that arrived during the decline would block the redirect; keep the draft so
       // the next send declines it too.
       const approvalArrived = pendingApprovalsRef.current.some(
-        (approval) =>
-          !approvalsToDecline.some((declined) => declined.requestId === approval.requestId),
+        (approval) => !pendingIdsBeforeDecline.includes(approval.requestId),
       );
       if (
         !declined ||
